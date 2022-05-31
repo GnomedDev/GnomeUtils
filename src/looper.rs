@@ -5,11 +5,12 @@ pub trait Looper {
 
     async fn loop_func(&self) -> anyhow::Result<()>;
     async fn start(self: std::sync::Arc<Self>) where Self: Sync {
+        tracing::info!("{}: Started background task", Self::NAME);
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(Self::MILLIS));
         loop {
             interval.tick().await;
             if let Err(err) = self.loop_func().await {
-                eprintln!("{} Error: {:?}", Self::NAME, err);
+                tracing::error!("{} Error: {:?}", Self::NAME, err);
             }
         }
     }

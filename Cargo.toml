@@ -20,3 +20,12 @@ dashmap = "5"
 version = "0.5"
 default-features = false
 features = ["postgres", "macros", "runtime-tokio-rustls"]
+
+[dependencies.reqwest]
+version = "0.11"
+default-features = false
+features = ["rustls-tls"]
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]

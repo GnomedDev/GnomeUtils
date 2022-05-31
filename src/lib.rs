@@ -5,6 +5,7 @@
 pub use poise;
 pub use poise::serenity_prelude as serenity;
 
+mod bot_list_updater;
 pub mod analytics;
 pub mod logging;
 pub mod errors;
@@ -13,6 +14,7 @@ mod traits;
 mod looper;
 
 pub use traits::{PoiseContextExt, OptionGettext, OptionTryUnwrap};
+pub use bot_list_updater::{BotListUpdater, BotListTokens};
 pub use looper::Looper;
 
 #[allow(clippy::unreadable_literal)]
