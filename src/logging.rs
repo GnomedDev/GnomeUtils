@@ -143,7 +143,7 @@ impl tracing::Subscriber for ArcWrapper<WebhookLogger> {
 
     fn enabled(&self, metadata: &tracing::Metadata<'_>) -> bool {
         // Ordered by verbosity
-        if metadata.target().starts_with(self.log_prefix) {
+        if ["gnomeutils", self.log_prefix].into_iter().any(|t| metadata.target().starts_with(t)) {
             self.max_verbosity >= *metadata.level()
         } else {
             tracing::Level::WARN >= *metadata.level()
