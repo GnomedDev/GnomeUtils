@@ -15,9 +15,12 @@ macro_rules! require {
 #[macro_export]
 macro_rules! require_guild {
     ($ctx:expr) => {
+        require_guild!($ctx, Ok(()))
+    };
+    ($ctx:expr, $ret:expr) => {
         $crate::require!($ctx.guild(), {
             ::tracing::warn!("Guild {} not cached in {} command!", $ctx.guild_id().unwrap(), $ctx.command().qualified_name);
-            Ok(())
+            $ret
         })
     };
 }
