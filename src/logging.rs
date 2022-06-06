@@ -1,6 +1,7 @@
 
-use std::{collections::HashMap, fmt::Write, sync::Arc, borrow::Cow};
+use std::{collections::HashMap, sync::Arc, fmt::Write};
 
+use itertools::Itertools as _;
 use parking_lot::Mutex;
 use anyhow::Result;
 
@@ -54,7 +55,7 @@ impl crate::looper::Looper for WebhookLogger {
         let pending_logs = self.pending_logs.lock().drain().collect::<HashMap<_, _>>();
 
         for (severity, messages) in pending_logs {
-            let mut chunks: Vec<Cow<'_, str>> = Vec::with_capacity(messages.len());
+            let mut chunks: Vec<String> = Vec::with_capacity(messages.len());
             let pre_chunked: String = messages
                 .into_iter()
                 .map(|(target, log_message)| {
@@ -65,14 +66,16 @@ impl crate::looper::Looper for WebhookLogger {
                 .collect();
 
             for line in pre_chunked.split_inclusive('\n') {
-                if let Some(chunk) = chunks.last_mut() {
-                    if chunk.len() + line.len() > 2000 {
-                        chunks.push(Cow::Borrowed(line));
+                for chunk in line.chars().chunks(2000).into_iter().map(Iterator::collect::<String>) {
+                    if let Some(current_chunk) = chunks.last_mut() {
+                        if current_chunk.len() + chunk.len() > 2000 {
+                            chunks.push(chunk);
+                        } else {
+                            current_chunk.push_str(&chunk);
+                        }
                     } else {
-                        chunk.to_mut().push_str(line);
+                        chunks.push(chunk);
                     }
-                } else {
-                    chunks.push(Cow::Borrowed(line));
                 }
             }
 

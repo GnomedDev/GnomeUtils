@@ -15,6 +15,7 @@ sysinfo = "0.23"
 tokio = "1"
 anyhow = "1"
 dashmap = "5"
+itertools = "0.10.3"
 
 [dependencies.sqlx]
 version = "0.5"
