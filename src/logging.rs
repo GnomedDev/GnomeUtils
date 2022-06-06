@@ -10,7 +10,7 @@ use poise::serenity_prelude as serenity;
 type LogMessage = (&'static str, String);
 
 pub struct WebhookLogger {
-    http: serenity::Http,
+    http: Arc<serenity::Http>,
     log_prefix: &'static str,
     webhook_name: &'static str,
     max_verbosity: tracing::Level,
@@ -23,8 +23,9 @@ pub struct WebhookLogger {
 }
 
 impl WebhookLogger {
+    #[must_use]
     pub fn new(
-        http: serenity::Http,
+        http: Arc<serenity::Http>,
         log_prefix: &'static str,
         webhook_name: &'static str,
         max_verbosity: tracing::Level,
