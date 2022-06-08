@@ -1,19 +1,20 @@
-
-use std::borrow::Cow;
-
 use anyhow::Result;
 
+#[cfg(feature = "poise")]
 use crate::{serenity, GnomeData};
 
+#[cfg(feature = "i18n")]
 pub trait OptionGettext<'a> {
     fn gettext(self, translate: &'a str) -> &'a str;
 }
 
+#[cfg(feature = "i18n")]
 impl<'a> OptionGettext<'a> for Option<&'a gettext::Catalog> {
     fn gettext(self, translate: &'a str) -> &'a str {
         self.map_or(translate, |c| c.gettext(translate))
     }
 }
+
 pub trait OptionTryUnwrap<T> {
     fn try_unwrap(self) -> Result<T>;
 }
@@ -31,20 +32,36 @@ impl<T> OptionTryUnwrap<T> for Option<T> {
     }
 }
 
+#[cfg(feature = "poise")]
 #[serenity::async_trait]
 pub trait PoiseContextExt {
+    #[cfg(feature = "i18n")]
     fn gettext<'a>(&'a self, translate: &'a str) -> &'a str;
+    #[cfg(not(feature = "i18n"))]
+    fn gettext<'a>(&self, translate: &'a str) -> &'a str;
+
+    #[cfg(feature = "i18n")]
     fn current_catalog(&self) -> Option<&gettext::Catalog>;
-    async fn author_permissions(&self) -> Result<serenity::Permissions>;
+    #[cfg(feature = "error_handling")]
     async fn send_error(&self, error: &str, fix: Option<&str>) -> Result<Option<poise::ReplyHandle<'_>>>;
+
+    async fn author_permissions(&self) -> Result<serenity::Permissions>;
 }
 
+#[cfg(feature = "poise")]
 #[serenity::async_trait]
 impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for poise::Context<'_, D, E> {
+    #[cfg(feature = "i18n")]
     fn gettext<'a>(&'a self, translate: &'a str) -> &'a str {
         self.current_catalog().gettext(translate)
     }
 
+    #[cfg(not(feature = "i18n"))]
+    fn gettext<'a>(&self, translate: &'a str) -> &'a str {
+        translate
+    }
+
+    #[cfg(feature = "i18n")]
     fn current_catalog(&self) -> Option<&gettext::Catalog> {
         if let poise::Context::Application(ctx) = self {
             if let poise::ApplicationCommandOrAutocompleteInteraction::ApplicationCommand(interaction) = ctx.interaction {
@@ -78,6 +95,7 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
         }
     }
 
+    #[cfg(feature = "error_handling")]
     async fn send_error(&self, error: &str, fix: Option<&str>) -> Result<Option<poise::ReplyHandle<'_>>> {
         let author = self.author();
         let ctx_discord = self.discord();
@@ -103,10 +121,10 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
                         m = member;
                         (m.display_name(), m.face())
                     },
-                    Err(_) => (Cow::Borrowed(&author.name), author.face()),
+                    Err(_) => (std::borrow::Cow::Borrowed(&author.name), author.face()),
                 }
             }
-            serenity::Channel::Private(_) => (Cow::Borrowed(&author.name), author.face()),
+            serenity::Channel::Private(_) => (std::borrow::Cow::Borrowed(&author.name), author.face()),
             _ => unreachable!(),
         };
 

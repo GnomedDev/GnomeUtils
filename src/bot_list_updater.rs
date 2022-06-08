@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-
-use poise::serenity_prelude as serenity;
+use serde_json::json;
 use reqwest::header::{AUTHORIZATION, HeaderValue};
-use serenity::json::prelude as json;
+
+use serenity::model::prelude::UserId;
 
 use crate::require;
 
@@ -18,7 +18,7 @@ pub struct BotListTokens {
 
 
 pub struct BotListUpdater {
-    cache: Arc<serenity::Cache>,
+    cache: Arc<serenity::cache::Cache>,
     reqwest: reqwest::Client,
     tokens: BotListTokens,
 }
@@ -26,23 +26,23 @@ pub struct BotListUpdater {
 
 struct BotListReq {
     url: String,
-    body: json::Value,
     token: HeaderValue,
+    body: serde_json::Value,
 }
 
 impl BotListUpdater {
     #[must_use]
-    pub fn new(reqwest: reqwest::Client, cache: Arc<serenity::Cache>, tokens: BotListTokens) -> Self {
+    pub fn new(reqwest: reqwest::Client, cache: Arc<serenity::cache::Cache>, tokens: BotListTokens) -> Self {
         Self {cache, reqwest, tokens}
     }
 
 
-    fn top_gg_data(&self, bot_id: serenity::UserId, guild_count: usize, shard_count: u64) -> Option<BotListReq> {
+    fn top_gg_data(&self, bot_id: UserId, guild_count: usize, shard_count: u64) -> Option<BotListReq> {
         self.tokens.top_gg.as_deref().map(|token| {
             BotListReq {
                 url: format!("https://top.gg/api/bots/{bot_id}/stats"),
                 token: HeaderValue::from_str(token).unwrap(),
-                body: json::json!({
+                body: json!({
                     "server_count": guild_count,
                     "shard_count": shard_count,
                 }),
@@ -50,12 +50,12 @@ impl BotListUpdater {
         })
     }
 
-    fn discord_bots_gg_data(&self, bot_id: serenity::UserId, guild_count: usize, shard_count: u64) -> Option<BotListReq> {
+    fn discord_bots_gg_data(&self, bot_id: UserId, guild_count: usize, shard_count: u64) -> Option<BotListReq> {
         self.tokens.discord_bots_gg.as_deref().map(|token| {
             BotListReq {
                 url: format!("https://discord.bots.gg/api/v1/bots/{bot_id}/stats"),
                 token: HeaderValue::from_str(token).unwrap(),
-                body: json::json!({
+                body: json!({
                     "guildCount": guild_count,
                     "shardCount": shard_count,
                 }),
@@ -63,19 +63,19 @@ impl BotListUpdater {
         })
     }
 
-    fn bots_on_discord_data(&self, bot_id: serenity::UserId, guild_count: usize) -> Option<BotListReq> {
+    fn bots_on_discord_data(&self, bot_id: UserId, guild_count: usize) -> Option<BotListReq> {
         self.tokens.bots_on_discord.as_deref().map(|token| {
             BotListReq {
                 url: format!("https://bots.ondiscord.xyz/bot-api/bots/{bot_id}/guilds"),
                 token: HeaderValue::from_str(token).unwrap(),
-                body: json::json!({"guildCount": guild_count}),
+                body: json!({"guildCount": guild_count}),
             }
         })
     }
 }
 
 
-#[poise::async_trait]
+#[async_trait::async_trait]
 impl crate::Looper for BotListUpdater {
     const NAME: &'static str = "Bot List Updater";
     const MILLIS: u64 = 1000 * 60 * 60;

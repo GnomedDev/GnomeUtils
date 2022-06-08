@@ -5,12 +5,12 @@ use itertools::Itertools as _;
 use parking_lot::Mutex;
 use anyhow::Result;
 
-use poise::serenity_prelude as serenity;
+use serenity::{http::Http, model::webhook::Webhook};
 
 type LogMessage = (&'static str, String);
 
 pub struct WebhookLogger {
-    http: Arc<serenity::Http>,
+    http: Arc<Http>,
     log_prefix: &'static str,
     webhook_name: &'static str,
     max_verbosity: tracing::Level,
@@ -18,19 +18,19 @@ pub struct WebhookLogger {
 
     pending_logs: Mutex<HashMap<tracing::Level, Vec<LogMessage>>>,
 
-    normal_logs: serenity::Webhook,
-    error_logs: serenity::Webhook,
+    normal_logs: Webhook,
+    error_logs: Webhook,
 }
 
 impl WebhookLogger {
     #[must_use]
     pub fn new(
-        http: Arc<serenity::Http>,
+        http: Arc<Http>,
         log_prefix: &'static str,
         webhook_name: &'static str,
         max_verbosity: tracing::Level,
-        normal_logs: serenity::Webhook,
-        error_logs: serenity::Webhook,
+        normal_logs: Webhook,
+        error_logs: Webhook,
     ) -> ArcWrapper<Self> {
         let level_lookup = HashMap::from_iter([
             (tracing::Level::TRACE, 1),
@@ -47,7 +47,7 @@ impl WebhookLogger {
     }
 }
 
-#[serenity::async_trait]
+#[async_trait::async_trait]
 impl crate::looper::Looper for WebhookLogger {
     const NAME: &'static str = "Logging";
     const MILLIS: u64 = 1100;

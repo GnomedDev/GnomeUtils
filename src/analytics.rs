@@ -58,7 +58,7 @@ impl Handler {
     }
 }
 
-#[poise::async_trait]
+#[async_trait::async_trait]
 impl crate::Looper for Handler {
     const NAME: &'static str = "Analytics";
     const MILLIS: u64 = 5000;
