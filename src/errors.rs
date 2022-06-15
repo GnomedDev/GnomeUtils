@@ -12,6 +12,8 @@
 //! ```
 
 use std::borrow::Cow;
+#[cfg(feature = "songbird")]
+use std::sync::Arc;
 
 use anyhow::{Error, Result};
 use sha2::Digest;
@@ -20,6 +22,8 @@ use tracing::error;
 
 use poise::serenity_prelude as serenity;
 
+#[cfg(feature = "songbird")]
+use crate::{Framework, framework_to_context};
 use crate::{GnomeData, require, FrameworkContext, PoiseContextExt, Context};
 
 const VIEW_TRACEBACK_CUSTOM_ID: &str = "error::traceback::view";
@@ -41,8 +45,8 @@ struct TracebackRow {
     pub traceback: String
 }
 
-
-const fn blank_field() -> (&'static str, Cow<'static, str>, bool) {
+#[must_use]
+pub const fn blank_field() -> (&'static str, Cow<'static, str>, bool) {
     ("\u{200B}", Cow::Borrowed("\u{200B}"), true)
 }
 
@@ -52,12 +56,12 @@ fn hash(data: &[u8]) -> Vec<u8> {
     Vec::from(&*hasher.finalize())
 }
 
-pub async fn handle_unexpected(
+pub async fn handle_unexpected<'a>(
     ctx: &serenity::Context,
     poise_context: FrameworkContext<'_, impl AsRef<GnomeData>>,
-    event: &str,
+    event: &'a str,
     error: Error,
-    extra_fields: Vec<(&str, Cow<'_, str>, bool)>,
+    extra_fields: impl IntoIterator<Item = (&str, Cow<'a, str>, bool)>,
     author_name: Option<String>,
     icon_url: Option<String>
 ) -> Result<()> {
@@ -171,7 +175,7 @@ pub async fn handle_unexpected_default(ctx: &serenity::Context, poise_context: F
 
     handle_unexpected(
         ctx, poise_context,
-        name, error, Vec::new(),
+        name, error, [],
         None, None
     ).await
 }
@@ -201,10 +205,11 @@ pub async fn handle_message(ctx: &serenity::Context, poise_context: FrameworkCon
 pub async fn handle_member(ctx: &serenity::Context, poise_context: FrameworkContext<'_, impl AsRef<GnomeData>>, member: &serenity::Member, result: Result<(), impl Into<Error>>) -> Result<()> {
     let error = require!(result.err(), Ok(())).into();
 
-    let mut extra_fields = Vec::with_capacity(3);
-    extra_fields.push(("Guild", Cow::Owned(member.guild_id.to_string()), true));
-    extra_fields.push(("Guild ID", Cow::Owned(member.guild_id.to_string()), true));
-    extra_fields.push(("User ID", Cow::Owned(member.user.id.0.to_string()), true));
+    let extra_fields = [
+        ("Guild", Cow::Owned(member.guild_id.to_string()), true),
+        ("Guild ID", Cow::Owned(member.guild_id.to_string()), true),
+        ("User ID", Cow::Owned(member.user.id.0.to_string()), true),
+    ];
 
     handle_unexpected(
         ctx, poise_context,
@@ -218,7 +223,7 @@ pub async fn handle_guild(name: &str, ctx: &serenity::Context, poise_context: Fr
 
     handle_unexpected(
         ctx, poise_context,
-        name, error, Vec::new(),
+        name, error, [],
         guild.as_ref().map(|g| g.name.clone()),
         guild.and_then(serenity::Guild::icon_url),
     ).await
@@ -405,4 +410,66 @@ pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, 
     }).await?;
 
     Ok(())
+}
+
+
+#[cfg(feature = "songbird")]
+struct TrackErrorHandler<D, Iter: IntoIterator<Item = (&'static str, Cow<'static, str>, bool)>> {
+    ctx: serenity::Context,
+    framework: Arc<Framework<D>>,
+    extra_fields: Iter,
+    author_name: String,
+    icon_url: String,
+}
+
+#[cfg(feature = "songbird")]
+#[async_trait::async_trait]
+impl<D, Iter> songbird::EventHandler for TrackErrorHandler<D, Iter>
+where
+    Iter: IntoIterator<Item = (&'static str, Cow<'static, str>, bool)> + Clone + Send + Sync,
+    D: AsRef<GnomeData> + Send + Sync,
+{
+    async fn act(&self, ctx: &songbird::EventContext<'_>) -> Option<songbird::Event> {
+        if let songbird::EventContext::Track([(state, _)]) = ctx {
+            if let songbird::tracks::PlayMode::Errored(error) = state.playing.clone() {
+                let framework_context = framework_to_context(&self.framework, self.ctx.cache.current_user_id()).await;
+                let author_name = Some(self.author_name.clone());
+                let icon_url = Some(self.icon_url.clone());
+
+                let result = handle_unexpected(
+                    &self.ctx, framework_context,
+                    "TrackError", error.into(),
+                    self.extra_fields.clone(), author_name, icon_url
+                ).await;
+
+                if let Err(err_err) = result {
+                    tracing::error!("Songbird unhandled track error: {}", err_err);
+                }
+            }
+        }
+
+        Some(songbird::Event::Cancel)
+    }
+}
+
+#[cfg(feature = "songbird")]
+/// Registers a track to be handled by the error handler, arguments other than the
+/// track are passed to [`handle_unexpected`] if the track errors.
+pub fn handle_track<Iter, D>(
+    ctx: serenity::Context,
+    framework: Arc<Framework<D>>,
+    extra_fields: Iter,
+    author_name: String,
+    icon_url: String,
+
+    track: &songbird::tracks::TrackHandle
+) -> Result<(), songbird::error::ControlError>
+where
+    Iter: IntoIterator<Item = (&'static str, Cow<'static, str>, bool)> + Clone + Send + Sync + 'static,
+    D: AsRef<GnomeData> + Send + Sync + 'static,
+{
+    track.add_event(
+        songbird::Event::Track(songbird::TrackEvent::Error),
+        TrackErrorHandler {ctx, framework, extra_fields, author_name, icon_url}
+    )
 }

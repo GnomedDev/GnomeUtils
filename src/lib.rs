@@ -23,9 +23,21 @@ pub use looper::Looper;
 pub const RED: u32 = 0xff0000;
 
 #[cfg(feature = "poise")]
+pub type Framework<D> = poise::Framework<D, anyhow::Error>;
+#[cfg(feature = "poise")]
 pub type Context<'a, D> = poise::Context<'a, D, anyhow::Error>;
 #[cfg(feature = "poise")]
 pub type FrameworkContext<'a, D> = poise::FrameworkContext<'a, D, anyhow::Error>;
+#[cfg(feature = "poise")]
+pub async fn framework_to_context<D>(framework: &Framework<D>, bot_id: serenity::UserId) -> FrameworkContext<'_, D> {
+    FrameworkContext {
+        bot_id,
+        options: framework.options(),
+        user_data: framework.user_data().await,
+        shard_manager: framework.shard_manager()
+    }
+}
+
 
 #[derive(Debug)]
 pub struct GnomeData {

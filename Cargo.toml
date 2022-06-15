@@ -44,6 +44,13 @@ optional = true
 default-features = false
 features = ["cache", "http", "utils", "builder", "model", "rustls_backend", "client", "gateway"]
 
+[dependencies.songbird]
+git = "https://github.com/FelixMcFelix/songbird.git"
+features = ["driver", "rustls"]
+default-features = false
+branch = "symphonia"
+optional = true
+
 [dependencies.parking_lot]
 version = "0.12"
 optional = true
