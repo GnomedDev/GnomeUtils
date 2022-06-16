@@ -94,9 +94,9 @@ pub async fn handle_unexpected<'a>(
         let (cpu_usage, mem_usage) ={
             let mut system = data.system_info.lock();
             system.refresh_specifics(sysinfo::RefreshKind::new()
+                .with_cpu(sysinfo::CpuRefreshKind::new().with_cpu_usage())
                 .with_processes(sysinfo::ProcessRefreshKind::new())
                 .with_memory()
-                .with_cpu()
             );
 
             (
