@@ -10,12 +10,13 @@ tracing = "0.1"
 async-trait = "0.1"
 anyhow = "1"
 
-[dependencies.poise]
-version = "0.2"
-optional = true
-
 [dependencies.gettext]
 version = "0.4"
+optional = true
+
+[dependencies.poise]
+git = "https://github.com/GnomedDev/poise"
+branch = "personal"
 optional = true
 
 [dependencies.sqlx]
@@ -45,10 +46,10 @@ default-features = false
 features = ["cache", "http", "utils", "builder", "model", "rustls_backend", "client", "gateway"]
 
 [dependencies.songbird]
-git = "https://github.com/FelixMcFelix/songbird.git"
+git = "https://github.com/GnomedDev/songbird.git"
 features = ["driver", "rustls"]
+branch = "symphonia-personal"
 default-features = false
-branch = "symphonia"
 optional = true
 
 [dependencies.parking_lot]
@@ -82,3 +83,6 @@ analytics = ["sqlx", "dashmap"]
 logging = ["serenity", "itertools", "parking_lot"]
 bot_list = ["serenity", "serde_json", "reqwest", "serde"]
 error_handling = ["poise", "sqlx", "sha2", "sysinfo", "parking_lot"]
+
+[patch."https://github.com/serenity-rs/serenity"]
+serenity = {git = "https://github.com/GnomedDev/serenity", branch = "personal"}

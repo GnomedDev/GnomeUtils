@@ -81,8 +81,8 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
 
         match ctx_discord.cache.channel(self.channel_id()).try_unwrap()? {
             serenity::Channel::Guild(channel) => {
+                let member = channel.guild_id.member(ctx_discord, self.author()).await?;
                 let guild = channel.guild(&ctx_discord.cache).try_unwrap()?;
-                let member = guild.member(ctx_discord, self.author()).await?;
 
                 Ok(guild.user_permissions_in(&channel, &member)?)
             }

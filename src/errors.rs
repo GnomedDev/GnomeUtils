@@ -24,7 +24,7 @@ use poise::serenity_prelude as serenity;
 
 #[cfg(feature = "songbird")]
 use crate::{Framework, framework_to_context};
-use crate::{GnomeData, require, FrameworkContext, PoiseContextExt, Context};
+use crate::{GnomeData, require, FrameworkContext, PoiseContextExt, Context, OptionTryUnwrap};
 
 const VIEW_TRACEBACK_CUSTOM_ID: &str = "error::traceback::view";
 
@@ -80,16 +80,14 @@ pub async fn handle_unexpected<'a>(
         WHERE traceback_hash = $1
         RETURNING message_id, occurrences
     ").bind(traceback_hash.clone()).fetch_optional(&mut conn).await? {
-        let message_id = serenity::model::id::MessageId(message_id as u64);
+        let message_id = serenity::MessageId::new(message_id as u64);
+
         let mut message = error_webhook.get_message(&ctx.http, message_id).await?;
-        let embed = &mut message.embeds[0];
+        let mut embed = message.embeds.remove(0);
 
-        let footer = format!("This error has occurred {} times!", occurrences);
-        embed.footer.as_mut().unwrap().text = footer;
+        embed.footer.as_mut().try_unwrap()?.text = format!("This error has occurred {occurrences} times!");
 
-        error_webhook.edit_message(ctx, message_id,  |m| {m.embeds(vec![
-            serenity::json::prelude::to_value(embed).unwrap()
-        ])}).await?;
+        error_webhook.edit_message(ctx, message_id,  |m| m.embeds(vec![embed.into()])).await?;
     } else {
         let (cpu_usage, mem_usage) ={
             let mut system = data.system_info.lock();
@@ -160,9 +158,9 @@ pub async fn handle_unexpected<'a>(
             ON CONFLICT (traceback_hash)
             DO UPDATE SET occurrences = errors.occurrences + 1
             RETURNING errors.message_id
-        ",).bind(traceback_hash).bind(traceback).bind(message.id.0 as i64).fetch_one(&mut conn).await?;
+        ",).bind(traceback_hash).bind(traceback).bind(message.id.get() as i64).fetch_one(&mut conn).await?;
 
-        if message.id.0 != (message_id as u64) {
+        if message.id.get() != (message_id as u64) {
             error_webhook.delete_message(&ctx.http, message.id).await?;
         }
     };
@@ -187,7 +185,7 @@ pub async fn handle_message(ctx: &serenity::Context, poise_context: FrameworkCon
 
     let mut extra_fields = Vec::with_capacity(3);
     if let Some(guild_id) = message.guild_id {
-        if let Some(guild_name) = ctx.cache.guild_field(guild_id, |g| g.name.clone()) {
+        if let Some(guild_name) = ctx.cache.guild(guild_id).map(|g| g.name.clone()) {
             extra_fields.push(("Guild", Cow::Owned(guild_name), true));
         }
 
@@ -316,7 +314,7 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
 
             if let Some(guild) = ctx.guild() {
                 extra_fields.extend([
-                    ("Guild", Cow::Owned(guild.name), true),
+                    ("Guild", Cow::Owned(guild.name.clone()), true),
                     ("Guild ID", Cow::Owned(guild.id.0.to_string()), true),
                     blank_field()
                 ]);
@@ -389,7 +387,7 @@ pub async fn interaction_create(ctx: serenity::Context, interaction: serenity::I
 
 pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, interaction: serenity::MessageComponentInteraction) -> Result<(), Error> {
     let row: Option<TracebackRow> = sqlx::query_as("SELECT traceback FROM errors WHERE message_id = $1")
-        .bind(interaction.message.id.0 as i64)
+        .bind(interaction.message.id.get() as i64)
         .fetch_optional(&data.pool)
         .await?;
 
