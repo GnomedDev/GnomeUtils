@@ -84,5 +84,8 @@ logging = ["serenity", "itertools", "parking_lot"]
 bot_list = ["serenity", "serde_json", "reqwest", "serde"]
 error_handling = ["poise", "sqlx", "sha2", "sysinfo", "parking_lot"]
 
+[patch.crates-io]
+serenity = {git = "https://github.com/GnomedDev/serenity", branch = "personal"}
+
 [patch."https://github.com/serenity-rs/serenity"]
 serenity = {git = "https://github.com/GnomedDev/serenity", branch = "personal"}

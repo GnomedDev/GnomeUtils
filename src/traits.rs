@@ -103,7 +103,7 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
         let m;
         let (name, avatar_url) = match self.channel_id().to_channel(ctx_discord).await? {
             serenity::Channel::Guild(channel) => {
-                let permissions = channel.permissions_for_user(ctx_discord, ctx_discord.cache.current_user_id())?;
+                let permissions = channel.permissions_for_user(ctx_discord, ctx_discord.cache.current_user().id)?;
 
                 if !permissions.send_messages() {
                     return Ok(None);

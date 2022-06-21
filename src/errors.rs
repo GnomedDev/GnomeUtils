@@ -105,7 +105,7 @@ pub async fn handle_unexpected<'a>(
 
         let before_fields = [
             ("Event", Cow::Borrowed(event), true),
-            ("Bot User", Cow::Owned(ctx.cache.current_user_field(|u| u.name.clone())), true),
+            ("Bot User", Cow::Owned(ctx.cache.current_user().name.clone()), true),
             blank_field(),
         ];
 
@@ -242,7 +242,7 @@ async fn handle_cooldown<D: AsRef<GnomeData> + Send + Sync>(ctx: Context<'_, D>,
             let ctx_discord = ctx.discord;
             error_message.delete(ctx_discord).await?;
             
-            let bot_user_id = ctx_discord.cache.current_user_id();
+            let bot_user_id = ctx_discord.cache.current_user().id;
             let channel = error_message.channel(ctx_discord).await?.guild().unwrap();
 
             if channel.permissions_for_user(ctx_discord, bot_user_id)?.manage_messages() {
@@ -360,13 +360,15 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
         poise::FrameworkError::NsfwOnly {ctx: _} | 
         poise::FrameworkError::NotAnOwner{ctx: _} => {},
         poise::FrameworkError::GuildOnly {ctx} => {
-            ctx.send_error(
-                &ctx.gettext("{command_name} cannot be used in private messages").replace("{command_name}", &ctx.command().qualified_name),
-                Some(&ctx.discord().cache.current_user_field(|b| ctx
-                    .gettext("try running it on a server with {bot_name} in")
-                    .replace("{bot_name}", &b.name)
-                ))
-            ).await?;
+            let error = ctx
+                .gettext("{command_name} cannot be used in private messages")
+                .replace("{command_name}", &ctx.command().qualified_name);
+
+            let fix = ctx
+                .gettext("try running it on a server with {bot_name} in")
+                .replace("{bot_name}", &ctx.discord().cache.current_user().name);
+
+            ctx.send_error(&error, Some(&fix)).await?;
         },
         poise::FrameworkError::__NonExhaustive => unreachable!(),
     }
@@ -430,7 +432,11 @@ where
     async fn act(&self, ctx: &songbird::EventContext<'_>) -> Option<songbird::Event> {
         if let songbird::EventContext::Track([(state, _)]) = ctx {
             if let songbird::tracks::PlayMode::Errored(error) = state.playing.clone() {
-                let framework_context = framework_to_context(&self.framework, self.ctx.cache.current_user_id()).await;
+                let framework_context = {
+                    let bot_id = self.ctx.cache.current_user().id;
+                    framework_to_context(&self.framework, bot_id).await
+                };
+
                 let author_name = Some(self.author_name.clone());
                 let icon_url = Some(self.icon_url.clone());
 

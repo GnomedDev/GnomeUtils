@@ -95,7 +95,7 @@ impl crate::Looper for BotListUpdater {
         };
 
         let shard_count = self.cache.shard_count();
-        let bot_id = self.cache.current_user_id();
+        let bot_id = self.cache.current_user().id;
         let guild_count = self.cache.guild_count();
 
         perform(self.bots_on_discord_data(bot_id, guild_count)).await;
