@@ -37,7 +37,7 @@ impl BotListUpdater {
     }
 
 
-    fn top_gg_data(&self, bot_id: UserId, guild_count: usize, shard_count: u64) -> Option<BotListReq> {
+    fn top_gg_data(&self, bot_id: UserId, guild_count: usize, shard_count: u32) -> Option<BotListReq> {
         self.tokens.top_gg.as_deref().map(|token| {
             BotListReq {
                 url: format!("https://top.gg/api/bots/{bot_id}/stats"),
@@ -50,7 +50,7 @@ impl BotListUpdater {
         })
     }
 
-    fn discord_bots_gg_data(&self, bot_id: UserId, guild_count: usize, shard_count: u64) -> Option<BotListReq> {
+    fn discord_bots_gg_data(&self, bot_id: UserId, guild_count: usize, shard_count: u32) -> Option<BotListReq> {
         self.tokens.discord_bots_gg.as_deref().map(|token| {
             BotListReq {
                 url: format!("https://discord.bots.gg/api/v1/bots/{bot_id}/stats"),
