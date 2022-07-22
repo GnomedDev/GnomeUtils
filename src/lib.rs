@@ -6,6 +6,7 @@
 pub use poise::{self, serenity_prelude as serenity};
 
 #[cfg(feature = "logging")] pub mod logging;
+#[cfg(feature = "help_command")] pub mod help;
 #[cfg(feature = "analytics")] pub mod analytics;
 #[cfg(feature = "bot_list")] mod bot_list_updater;
 #[cfg(feature = "error_handling")] pub mod errors;
@@ -23,11 +24,15 @@ pub use looper::Looper;
 pub const RED: u32 = 0xff0000;
 
 #[cfg(feature = "poise")]
+pub type Command<D> = poise::Command<D, anyhow::Error>;
+#[cfg(feature = "poise")]
 pub type Framework<D> = poise::Framework<D, anyhow::Error>;
 #[cfg(feature = "poise")]
 pub type Context<'a, D> = poise::Context<'a, D, anyhow::Error>;
 #[cfg(feature = "poise")]
 pub type FrameworkContext<'a, D> = poise::FrameworkContext<'a, D, anyhow::Error>;
+#[cfg(feature = "poise")]
+pub type ApplicationContext<'a, D> = poise::ApplicationContext<'a, D, anyhow::Error>;
 #[cfg(feature = "poise")]
 pub async fn framework_to_context<D>(framework: &Framework<D>, bot_id: serenity::UserId) -> FrameworkContext<'_, D> {
     FrameworkContext {

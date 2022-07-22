@@ -10,6 +10,10 @@ tracing = "0.1"
 async-trait = "0.1"
 anyhow = "1"
 
+[dependencies.indexmap]
+version = "1"
+optional = true
+
 [dependencies.gettext]
 version = "0.4"
 optional = true
@@ -30,6 +34,10 @@ version = "0.10"
 optional = true
 
 [dependencies.itertools]
+version = "0.10"
+optional = true
+
+[dependencies.strsim]
 version = "0.10"
 optional = true
 
@@ -80,6 +88,7 @@ optional = true
 [features]
 i18n = ["gettext"]
 analytics = ["sqlx", "dashmap"]
+help_command = ["indexmap", "strsim", "poise"]
 logging = ["serenity", "itertools", "parking_lot"]
 bot_list = ["serenity", "serde_json", "reqwest", "serde"]
 error_handling = ["poise", "sqlx", "sha2", "sysinfo", "parking_lot"]
