@@ -3,7 +3,7 @@ use std::fmt::Write as _;
 use anyhow::Result;
 use indexmap::IndexMap;
 
-use crate::{Command, GnomeData, Context, require, ApplicationContext, PoiseContextExt};
+use crate::{Command, GnomeData, Context, require, ApplicationContext, PoiseContextExt, serenity};
 
 enum HelpCommandMode<'a, D: AsRef<GnomeData>> {
     Root,
@@ -90,7 +90,7 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
         }
     };
 
-    ctx.send(|b| b.embed(|e| e
+    ctx.send(poise::CreateReply::default().embed(serenity::CreateEmbed::default()
         .title(ctx.gettext("{command_name} Help!").replace("{command_name}", &match &mode {
             HelpCommandMode::Root => ctx.discord().cache.current_user().name.clone(),
             HelpCommandMode::Group(c) | HelpCommandMode::Command(c) => format!("`{}`", c.qualified_name) 
@@ -119,11 +119,11 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
             }),
         })
         .colour(neutral_colour)
-        .author(|a| {
-            a.name(ctx.author().name.clone());
-            a.icon_url(ctx.author().face())
-        })
-        .footer(|f| f.text(match mode {
+        .author(serenity::CreateEmbedAuthor::default()
+            .name(ctx.author().name.clone())
+            .icon_url(ctx.author().face())
+        )
+        .footer(serenity::CreateEmbedFooter::default().text(match mode {
             HelpCommandMode::Group(c) => ctx
                 .gettext("Use `/help {command_name} [command]` for more info on a command")
                 .replace("{command_name}", &c.qualified_name),

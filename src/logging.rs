@@ -5,7 +5,7 @@ use itertools::Itertools as _;
 use parking_lot::Mutex;
 use anyhow::Result;
 
-use serenity::{http::Http, model::webhook::Webhook};
+use serenity::{http::Http, model::webhook::Webhook, builder::ExecuteWebhook};
 
 type LogMessage = (&'static str, String);
 
@@ -94,7 +94,7 @@ impl crate::looper::Looper for WebhookLogger {
             webhook_name.push(']');
 
             for chunk in chunks {
-                webhook.execute(&self.http, false, |b| b
+                webhook.execute(&self.http, false, ExecuteWebhook::default()
                     .content(chunk)
                     .username(webhook_name.clone())
                     .avatar_url(self.level_lookup.get(&severity).cloned().unwrap_or_else(|| String::from(

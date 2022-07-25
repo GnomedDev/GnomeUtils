@@ -20,11 +20,10 @@ use sha2::Digest;
 use sysinfo::SystemExt;
 use tracing::error;
 
-use poise::serenity_prelude as serenity;
-
 #[cfg(feature = "songbird")]
 use crate::{Framework, framework_to_context};
-use crate::{GnomeData, require, FrameworkContext, PoiseContextExt, Context, OptionTryUnwrap};
+use crate::{GnomeData, require, FrameworkContext, PoiseContextExt, Context, OptionTryUnwrap, serenity};
+use self::serenity::{CreateComponents, CreateActionRow, CreateButton, CreateInteractionResponse};
 
 const VIEW_TRACEBACK_CUSTOM_ID: &str = "error::traceback::view";
 
@@ -87,7 +86,8 @@ pub async fn handle_unexpected<'a>(
 
         embed.footer.as_mut().try_unwrap()?.text = format!("This error has occurred {occurrences} times!");
 
-        error_webhook.edit_message(ctx, message_id,  |m| m.embeds(vec![embed.into()])).await?;
+        let builder = serenity::EditWebhookMessage::default().embeds(vec![embed.into()]);
+        error_webhook.edit_message(ctx, message_id, builder).await?;
     } else {
         let (cpu_usage, mem_usage) ={
             let mut system = data.system_info.lock();
@@ -116,40 +116,36 @@ pub async fn handle_unexpected<'a>(
             ("Shard Count", Cow::Owned(shard_count.to_string()), true),
         ];
 
-        let embed = serenity::model::channel::Embed::fake(|e| {
-            before_fields.into_iter()
-                .chain(extra_fields)
-                .chain(after_fields)
-                .for_each(|(title, mut value, inline)| {
-                    if value != "\u{200B}" {
-                        value = Cow::Owned(format!("`{value}`"));
-                    };
+        let mut embed = serenity::CreateEmbed::default()
+            .footer(serenity::CreateEmbedFooter::default().text("This error has occurred 1 time!"))
+            .title(short_error)
+            .colour(crate::RED);
 
-                    e.field(title, &*value, inline);
-                });
+        for (title, mut value, inline) in before_fields.into_iter().chain(extra_fields).chain(after_fields) {
+            if value != "\u{200B}" {
+                value = Cow::Owned(format!("`{value}`"));
+            };
 
-            if let Some(author_name) = author_name {
-                e.author(|a| {
-                    if let Some(icon_url) = icon_url {
-                        a.icon_url(icon_url);
-                    }
-                    a.name(author_name)
-                });
+            embed = embed.field(title, &*value, inline);
+        }
+
+        if let Some(author_name) = author_name {
+            let mut author_builder = serenity::CreateEmbedAuthor::default().name(author_name);
+            if let Some(icon_url) = icon_url {
+                author_builder = author_builder.icon_url(icon_url);
             }
 
-            e.footer(|f| f.text("This error has occurred 1 time!"));
-            e.title(short_error);
-            e.colour(crate::RED)
-        });
+            embed = embed.author(author_builder);
+        }
 
-        let message = error_webhook.execute(&ctx.http, true, |b| {b
+        let message = error_webhook.execute(&ctx.http, true, serenity::ExecuteWebhook::default()
             .embeds(vec![embed])
-            .components(|c| c.create_action_row(|a| a.create_button(|b| {b
+            .components(CreateComponents::default().add_action_row(CreateActionRow::default().add_button(CreateButton::default()
                 .label("View Traceback")
                 .custom_id(VIEW_TRACEBACK_CUSTOM_ID)
                 .style(serenity::ButtonStyle::Danger)
-            })))
-        }).await?.unwrap();
+            )))
+        ).await?.unwrap();
 
         let ErrorRow{message_id} = sqlx::query_as("
             INSERT INTO errors(traceback_hash, traceback, message_id)
@@ -393,21 +389,20 @@ pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, 
         .fetch_optional(&data.pool)
         .await?;
 
-    interaction.create_interaction_response(&ctx.http, |r| {r
-        .kind(serenity::InteractionResponseType::ChannelMessageWithSource)
-        .interaction_response_data(move |d| {
-            d.ephemeral(true);
+    let mut response_data = serenity::CreateInteractionResponseData::default().ephemeral(true);
+    response_data = if let Some(TracebackRow{traceback}) = row {
+        response_data.files([serenity::AttachmentType::Bytes {
+            data: Cow::Owned(traceback.into_bytes()),
+            filename: String::from("traceback.txt")
+        }])
+    } else {
+        response_data.content("No traceback found.")
+    };
 
-            if let Some(TracebackRow{traceback}) = row {
-                d.files([serenity::AttachmentType::Bytes {
-                    data: Cow::Owned(traceback.into_bytes()),
-                    filename: String::from("traceback.txt")
-                }])
-            } else {
-                d.content("No traceback found.")
-            }
-        })
-    }).await?;
+    interaction.create_interaction_response(&ctx.http, CreateInteractionResponse::default()
+        .kind(serenity::InteractionResponseType::ChannelMessageWithSource)
+        .interaction_response_data(response_data)
+    ).await?;
 
     Ok(())
 }

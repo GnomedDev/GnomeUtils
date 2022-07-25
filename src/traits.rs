@@ -110,10 +110,10 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
                 };
 
                 if !permissions.embed_links() {
-                    return self.send(|b| {b
+                    return self.send(poise::CreateReply::default()
                         .ephemeral(true)
                         .content("An Error Occurred! Please give me embed links permissions so I can tell you more!")
-                    }).await.map(Some).map_err(Into::into)
+                    ).await.map(Some).map_err(Into::into)
                 };
 
                 match channel.guild_id.member(ctx_discord, author.id).await {
@@ -128,20 +128,20 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
             _ => unreachable!(),
         };
 
-        match self.send(|b| b
+        match self.send(poise::CreateReply::default()
             .ephemeral(true)
-            .embed(|e| e
+            .embed(serenity::CreateEmbed::default()
                 .colour(crate::RED)
                 .title("An Error Occurred!")
                 .description(format!(
                     "Sorry but {}, to fix this, please {}!", error,
                     fix.unwrap_or("get in contact with us via the support server"),
                 ))
-                .author(|a| a
+                .author(serenity::CreateEmbedAuthor::default()
                     .name(name.into_owned())
                     .icon_url(avatar_url)
                 )
-                .footer(|f| f.text(format!(
+                .footer(serenity::CreateEmbedFooter::default().text(format!(
                     "Support Server: {}", self.data().as_ref().main_server_invite
                 )))
             )
