@@ -393,7 +393,7 @@ pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, 
     response_data = if let Some(TracebackRow{traceback}) = row {
         response_data.files([serenity::AttachmentType::Bytes {
             data: Cow::Owned(traceback.into_bytes()),
-            filename: String::from("traceback.txt")
+            filename: Cow::Borrowed("traceback.txt")
         }])
     } else {
         response_data.content("No traceback found.")
