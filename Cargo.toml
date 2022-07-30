@@ -15,7 +15,8 @@ version = "1"
 optional = true
 
 [dependencies.poise]
-version = "0.2"
+version = "0.3"
+optional = true
 
 [dependencies.gettext]
 version = "0.4"
@@ -63,7 +64,7 @@ version = "0.12"
 optional = true
 
 [dependencies.sysinfo]
-version = "0.24"
+version = "0.25"
 optional = true
 
 [dependencies.tokio]

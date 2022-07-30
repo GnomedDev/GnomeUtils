@@ -42,9 +42,9 @@ fn show_group_description(group: &IndexMap<&str, Vec<&Command<impl AsRef<GnomeDa
         format!("**__{category}__**\n{}\n", commands.iter().map(|c| {
             let params = format_params(c);
             if params.is_empty() {
-                format!("`{}`: {}\n", c.qualified_name, c.inline_help.unwrap())
+                format!("`{}`: {}\n", c.qualified_name, c.description.as_ref().unwrap())
             } else {
-                format!("`{} {}`: {}\n", c.qualified_name, params, c.inline_help.unwrap())
+                format!("`{} {}`: {}\n", c.qualified_name, params, c.description.as_ref().unwrap())
             }
         }).collect::<String>()
     )}).collect::<String>()
@@ -72,7 +72,7 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
                 (command_obj, _, _) = require!(poise::find_command(&command_obj.subcommands, &remaining_args, true), {
                     ctx.say(ctx
                         .gettext("The group {group_name} does not have a subcommand called {subcommand_name}!")
-                        .replace("{subcommand_name}", &remaining_args).replace("{group_name}", command_obj.name)
+                        .replace("{subcommand_name}", &remaining_args).replace("{group_name}", &command_obj.name)
                     ).await.map(drop).map_err(Into::into)
                 });
             };
@@ -92,21 +92,21 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
 
     ctx.send(|b| b.embed(|e| e
         .title(ctx.gettext("{command_name} Help!").replace("{command_name}", &match &mode {
-            HelpCommandMode::Root => ctx.discord().cache.current_user().name.clone(),
+            HelpCommandMode::Root => ctx.discord().cache.current_user_field(|u| u.name.clone()),
             HelpCommandMode::Group(c) | HelpCommandMode::Command(c) => format!("`{}`", c.qualified_name) 
         }))
         .description(match &mode {
             HelpCommandMode::Root => show_group_description(&get_command_mapping(commands)),
             HelpCommandMode::Command(command_obj) => {
                 let mut msg = format!("{}\n```/{} {}```\n",
-                    command_obj.inline_help.unwrap_or_else(|| ctx.gettext("Command description not found!")),
+                    command_obj.description.as_deref().unwrap_or_else(|| ctx.gettext("Command description not found!")),
                     command_obj.qualified_name, format_params(command_obj),
                 );
 
                 if !command_obj.parameters.is_empty() {
                     msg.push_str(ctx.gettext("__**Parameter Descriptions**__\n"));
                     command_obj.parameters.iter().for_each(|p|
-                        writeln!(msg, "`{}`: {}", p.name, p.description.unwrap_or_else(|| ctx.gettext("no description"))).unwrap()
+                        writeln!(msg, "`{}`: {}", p.name, p.description.as_deref().unwrap_or_else(|| ctx.gettext("no description"))).unwrap()
                     );
                 };
 

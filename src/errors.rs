@@ -233,17 +233,18 @@ pub async fn handle_guild(name: &str, ctx: &serenity::Context, poise_context: Fr
 // Command Error handlers
 async fn handle_cooldown<D: AsRef<GnomeData> + Send + Sync>(ctx: Context<'_, D>, remaining_cooldown: std::time::Duration) -> Result<(), Error> {
     let cooldown_response = ctx.send_error(
-        &ctx.gettext("{command_name} is on cooldown").replace("{command_name}", ctx.command().name),
+        &ctx.gettext("{command_name} is on cooldown").replace("{command_name}", &ctx.command().name),
         Some(&ctx.gettext("try again in {} seconds").replace("{}", &format!("{:.1}", remaining_cooldown.as_secs_f32())))
     ).await?;
 
     if let poise::Context::Prefix(ctx) = ctx {
-        if let Some(poise::ReplyHandle::Known(error_message)) = cooldown_response {
+        if let Some(cooldown_response) = cooldown_response {
+            let ctx_discord = ctx.discord;
             tokio::time::sleep(remaining_cooldown).await;
 
-            let ctx_discord = ctx.discord;
+            let error_message = cooldown_response.into_message().await?;
             error_message.delete(ctx_discord).await?;
-            
+
             let bot_user_id = ctx_discord.cache.current_user_id();
             let channel = error_message.channel(ctx_discord).await?.guild().unwrap();
 
@@ -309,7 +310,7 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
             let command = ctx.command();
 
             let mut extra_fields = vec![
-                ("Command", Cow::Borrowed(command.name), true),
+                ("Command", Cow::Borrowed(&*command.name), true),
                 ("Slash Command", Cow::Owned(matches!(ctx, poise::Context::Application(..)).to_string()), true),
                 ("Channel Type", Cow::Borrowed(channel_type(&ctx.channel_id().to_channel(ctx.discord()).await?)), true),
             ];
@@ -334,7 +335,7 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
         poise::FrameworkError::CooldownHit { remaining_cooldown, ctx } => handle_cooldown(ctx, remaining_cooldown).await?,
         poise::FrameworkError::MissingBotPermissions{missing_permissions, ctx} => {
             ctx.send_error(
-                &ctx.gettext("I cannot run `{command}` as I am missing permissions").replace("{command}", ctx.command().name),
+                &ctx.gettext("I cannot run `{command}` as I am missing permissions").replace("{command}", &ctx.command().name),
                 Some(&ctx.gettext("give me: {}").replace("{}", &missing_permissions.get_permission_names().join(", ")))
             ).await?;
         },
