@@ -336,7 +336,7 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
             ctx.send_error(
                 ctx.gettext("you cannot run this command"),
                 missing_permissions.map(|missing_permissions| (ctx
-                    .gettext("ask an administator for the following permissions: {}")
+                    .gettext("ask an administrator for the following permissions: {}")
                     .replace("{}", &missing_permissions.get_permission_names().join(", "))
                 )).as_deref()
             ).await?;
