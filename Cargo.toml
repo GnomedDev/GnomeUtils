@@ -54,11 +54,11 @@ default-features = false
 features = ["cache", "http", "utils", "builder", "model", "rustls_backend", "client", "gateway"]
 
 [dependencies.songbird]
-git = "https://github.com/GnomedDev/songbird.git"
+git = "https://github.com/serenity-rs/songbird.git"
 features = ["driver", "rustls"]
-branch = "symphonia-personal"
 default-features = false
 optional = true
+branch = "next"
 
 [dependencies.parking_lot]
 version = "0.12"
