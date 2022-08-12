@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use serde_json::json;
-use reqwest::header::{AUTHORIZATION, HeaderValue};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 
-use serenity::model::prelude::UserId;
+use serenity::{model::prelude::UserId, json::prelude as json};
 
 use crate::require;
 
@@ -83,9 +83,16 @@ impl crate::Looper for BotListUpdater {
     async fn loop_func(&self) -> Result<()> {
         let perform = |req: Option<BotListReq>| async move {
             if let Some(BotListReq{url, body, token}) = req {
-                let headers = reqwest::header::HeaderMap::from_iter([(AUTHORIZATION, token)]);
+                let headers = reqwest::header::HeaderMap::from_iter([
+                    (AUTHORIZATION, token),
+                    (CONTENT_TYPE, HeaderValue::from_static("application/json"))
+                ]);
 
-                let err = require!(match self.reqwest.post(url).json(&body).headers(headers).send().await {
+                let request = self.reqwest.post(url)
+                    .body(json::to_vec(&body).unwrap())
+                    .headers(headers);
+
+                let err = require!(match request.send().await {
                     Ok(resp) => resp.error_for_status().err(),
                     Err(err) => Some(err),
                 });
