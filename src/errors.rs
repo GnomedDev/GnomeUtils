@@ -70,8 +70,6 @@ pub async fn handle_unexpected<'a>(
     let traceback = format!("{:?}", error);
 
     let traceback_hash = hash(traceback.as_bytes());
-
-    let short_error = error.to_string();
     let mut conn = data.pool.acquire().await?;
 
     if let Some(ErrorRowWithOccurrences{message_id, occurrences}) = sqlx::query_as("
@@ -89,6 +87,19 @@ pub async fn handle_unexpected<'a>(
         let builder = serenity::EditWebhookMessage::default().embeds(vec![embed.into()]);
         error_webhook.edit_message(ctx, message_id, builder).await?;
     } else {
+        let short_error = {
+            let mut long_err = error.to_string();
+
+            // Avoid char boundary panics with utf8 chars
+            let mut new_len = 256;
+            while !long_err.is_char_boundary(new_len) {
+                new_len -= 1;
+            }
+
+            long_err.truncate(new_len);
+            long_err
+        };
+
         let (cpu_usage, mem_usage) ={
             let mut system = data.system_info.lock();
             system.refresh_specifics(sysinfo::RefreshKind::new()
