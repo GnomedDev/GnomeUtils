@@ -34,11 +34,13 @@ pub type FrameworkContext<'a, D> = poise::FrameworkContext<'a, D, anyhow::Error>
 #[cfg(feature = "poise")]
 pub type ApplicationContext<'a, D> = poise::ApplicationContext<'a, D, anyhow::Error>;
 #[cfg(feature = "poise")]
-pub async fn framework_to_context<D>(framework: &Framework<D>, bot_id: serenity::UserId) -> FrameworkContext<'_, D> {
+pub async fn framework_to_context<D>(framework: &Framework<D>) -> FrameworkContext<'_, D> {
+    let user_data = framework.user_data().await;
+    let bot_id = *framework.bot_id().get().unwrap();
+
     FrameworkContext {
-        bot_id,
+        bot_id, user_data,
         options: framework.options(),
-        user_data: framework.user_data().await,
         shard_manager: framework.shard_manager()
     }
 }

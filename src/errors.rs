@@ -438,10 +438,7 @@ where
     async fn act(&self, ctx: &songbird::EventContext<'_>) -> Option<songbird::Event> {
         if let songbird::EventContext::Track([(state, _)]) = ctx {
             if let songbird::tracks::PlayMode::Errored(error) = state.playing.clone() {
-                let framework_context = {
-                    let bot_id = self.ctx.cache.current_user().id;
-                    framework_to_context(&self.framework, bot_id).await
-                };
+                let framework_context = framework_to_context(&self.framework).await;
 
                 let author_name = Some(self.author_name.clone());
                 let icon_url = Some(self.icon_url.clone());
