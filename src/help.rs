@@ -134,7 +134,7 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
 }
 
 #[allow(clippy::unused_async)]
-pub async fn autocomplete(ctx: ApplicationContext<'_, impl AsRef<GnomeData>>, searching: String) -> Vec<String> {
+pub async fn autocomplete(ctx: ApplicationContext<'_, impl AsRef<GnomeData>>, searching: &str) -> Vec<String> {
     fn flatten_commands(commands: &[Command<impl AsRef<GnomeData>>], searching: &str) -> Vec<String> {
         let mut result = Vec::new();
 
@@ -155,7 +155,7 @@ pub async fn autocomplete(ctx: ApplicationContext<'_, impl AsRef<GnomeData>>, se
         result
     }
 
-    let mut result: Vec<String> = flatten_commands(&ctx.framework.options().commands, &searching);
-    result.sort_by_key(|a| strsim::levenshtein(a, &searching));
+    let mut result: Vec<String> = flatten_commands(&ctx.framework.options().commands, searching);
+    result.sort_by_key(|a| strsim::levenshtein(a, searching));
     result
 }
