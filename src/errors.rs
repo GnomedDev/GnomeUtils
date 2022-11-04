@@ -67,7 +67,7 @@ pub async fn handle_unexpected<'a>(
     let data = poise_context.user_data.as_ref();
     let error_webhook = &data.error_webhook;
 
-    let traceback = format!("{:?}", error);
+    let traceback = format!("{error:?}");
 
     let traceback_hash = hash(traceback.as_bytes());
     let mut conn = data.pool.acquire().await?;
@@ -152,7 +152,8 @@ pub async fn handle_unexpected<'a>(
         let message = error_webhook.execute(&ctx.http, true, serenity::ExecuteWebhook::default()
             .embeds(vec![embed])
             .components(vec![CreateActionRow::Buttons(vec![
-                CreateButton::new("View Traceback", VIEW_TRACEBACK_CUSTOM_ID)
+                CreateButton::new(VIEW_TRACEBACK_CUSTOM_ID)
+                    .label("View Traceback")
                     .style(serenity::ButtonStyle::Danger)
             ])])
         ).await?.unwrap();
@@ -352,7 +353,7 @@ pub async fn handle<D: AsRef<GnomeData> + std::fmt::Debug + Send + Sync>(error: 
             ).await?;
         },
 
-        poise::FrameworkError::Setup { .. } => panic!("{:#?}", error),
+        poise::FrameworkError::Setup { .. } => panic!("{error:#?}"),
         poise::FrameworkError::CommandCheckFailed { error, ctx } => {
             if let Some(error) = error {
                 error!("Premium Check Error: {:?}", error);

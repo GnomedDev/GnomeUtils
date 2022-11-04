@@ -57,14 +57,13 @@ impl crate::looper::Looper for WebhookLogger {
 
         for (severity, messages) in pending_logs {
             let mut chunks: Vec<String> = Vec::with_capacity(messages.len());
-            let pre_chunked: String = messages
-                .into_iter()
-                .map(|(target, log_message)| {
-                    log_message.trim().split('\n').map(move |line| {
-                        format!("`[{}]`: {}\n", target, line)
-                    }).collect::<String>()
-                })
-                .collect();
+            let mut pre_chunked = String::new();
+
+            for (target, log_message) in messages {
+                for line in log_message.trim().split('\n') {
+                    writeln!(pre_chunked, "`[{target}]`: {line}")?;
+                }
+            }
 
             for line in pre_chunked.split_inclusive('\n') {
                 for chunk in line.chars().chunks(2000).into_iter().map(Iterator::collect::<String>) {
@@ -126,7 +125,7 @@ impl tracing::Subscriber for ArcWrapper<WebhookLogger> {
 
         impl<'a> tracing::field::Visit for StringVisitor<'a> {
             fn record_debug(&mut self, _field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-                write!(self.string, "{:?}", value).unwrap();
+                write!(self.string, "{value:?}").unwrap();
             }
 
             fn record_str(&mut self, _field: &tracing::field::Field, value: &str) {

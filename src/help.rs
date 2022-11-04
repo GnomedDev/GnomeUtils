@@ -42,9 +42,9 @@ fn show_group_description(group: &IndexMap<&str, Vec<&Command<impl AsRef<GnomeDa
         format!("**__{category}__**\n{}\n", commands.iter().map(|c| {
             let params = format_params(c);
             if params.is_empty() {
-                format!("`{}`: {}\n", c.qualified_name, c.description.unwrap())
+                format!("`{}`: {}\n", c.qualified_name, c.description.as_ref().unwrap())
             } else {
-                format!("`{} {}`: {}\n", c.qualified_name, params, c.description.unwrap())
+                format!("`{} {params}`: {}\n", c.qualified_name, c.description.as_ref().unwrap())
             }
         }).collect::<String>()
     )}).collect::<String>()
@@ -62,17 +62,17 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
             let mut subcommand_iterator = command.split(' ');
 
             let top_level_command = subcommand_iterator.next().unwrap();
-            let (mut command_obj, _, _) = require!(poise::find_command(commands, top_level_command, true), {
+            let (mut command_obj, _, _) = require!(poise::find_command(commands, top_level_command, true, &mut Vec::new()), {
                 ctx.say(ctx.gettext("No command called {} found!").replace("{}", top_level_command)).await?;
                 Ok(())
             });
 
             remaining_args = subcommand_iterator.collect();
             if !remaining_args.is_empty() {
-                (command_obj, _, _) = require!(poise::find_command(&command_obj.subcommands, &remaining_args, true), {
+                (command_obj, _, _) = require!(poise::find_command(&command_obj.subcommands, &remaining_args, true, &mut Vec::new()), {
                     ctx.say(ctx
                         .gettext("The group {group_name} does not have a subcommand called {subcommand_name}!")
-                        .replace("{subcommand_name}", &remaining_args).replace("{group_name}", command_obj.name)
+                        .replace("{subcommand_name}", &remaining_args).replace("{group_name}", &command_obj.name)
                     ).await.map(drop).map_err(Into::into)
                 });
             };
@@ -99,14 +99,14 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
             HelpCommandMode::Root => show_group_description(&get_command_mapping(commands)),
             HelpCommandMode::Command(command_obj) => {
                 let mut msg = format!("{}\n```/{} {}```\n",
-                    command_obj.inline_help.unwrap_or_else(|| ctx.gettext("Command description not found!")),
+                    command_obj.description.as_deref().unwrap_or_else(|| ctx.gettext("Command description not found!")),
                     command_obj.qualified_name, format_params(command_obj),
                 );
 
                 if !command_obj.parameters.is_empty() {
                     msg.push_str(ctx.gettext("__**Parameter Descriptions**__\n"));
                     command_obj.parameters.iter().for_each(|p|
-                        writeln!(msg, "`{}`: {}", p.name, p.description.unwrap_or_else(|| ctx.gettext("no description"))).unwrap()
+                        writeln!(msg, "`{}`: {}", p.name, p.description.as_deref().unwrap_or_else(|| ctx.gettext("no description"))).unwrap()
                     );
                 };
 
@@ -119,11 +119,8 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
             }),
         })
         .colour(neutral_colour)
-        .author(serenity::CreateEmbedAuthor::default()
-            .name(ctx.author().name.clone())
-            .icon_url(ctx.author().face())
-        )
-        .footer(serenity::CreateEmbedFooter::default().text(match mode {
+        .author(serenity::CreateEmbedAuthor::new(ctx.author().name.clone()).icon_url(ctx.author().face()))
+        .footer(serenity::CreateEmbedFooter::new(match mode {
             HelpCommandMode::Group(c) => ctx
                 .gettext("Use `/help {command_name} [command]` for more info on a command")
                 .replace("{command_name}", &c.qualified_name),
