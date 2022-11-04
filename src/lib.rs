@@ -23,28 +23,27 @@ pub use looper::Looper;
 #[allow(clippy::unreadable_literal)]
 pub const RED: u32 = 0xff0000;
 
-#[cfg(feature = "poise")]
-pub type Command<D> = poise::Command<D, anyhow::Error>;
-#[cfg(feature = "poise")]
-pub type Framework<D> = poise::Framework<D, anyhow::Error>;
-#[cfg(feature = "poise")]
-pub type Context<'a, D> = poise::Context<'a, D, anyhow::Error>;
-#[cfg(feature = "poise")]
-pub type FrameworkContext<'a, D> = poise::FrameworkContext<'a, D, anyhow::Error>;
-#[cfg(feature = "poise")]
-pub type ApplicationContext<'a, D> = poise::ApplicationContext<'a, D, anyhow::Error>;
-#[cfg(feature = "poise")]
-pub async fn framework_to_context<D>(framework: &Framework<D>) -> FrameworkContext<'_, D> {
-    let user_data = framework.user_data().await;
-    let bot_id = *framework.bot_id().get().unwrap();
-
-    FrameworkContext {
-        bot_id, user_data,
-        options: framework.options(),
-        shard_manager: framework.shard_manager()
+#[cfg(feature="poise")]
+mod poise_specific {
+    pub type Command<D> = poise::Command<D, anyhow::Error>;
+    pub type Framework<D> = poise::Framework<D, anyhow::Error>;
+    pub type Context<'a, D> = poise::Context<'a, D, anyhow::Error>;
+    pub type FrameworkContext<'a, D> = poise::FrameworkContext<'a, D, anyhow::Error>;
+    pub type ApplicationContext<'a, D> = poise::ApplicationContext<'a, D, anyhow::Error>;
+    pub async fn framework_to_context<D>(framework: &Framework<D>) -> FrameworkContext<'_, D> {
+        let user_data = framework.user_data().await;
+        let bot_id = framework.bot_id().await;
+    
+        FrameworkContext {
+            bot_id, user_data,
+            options: framework.options(),
+            shard_manager: framework.shard_manager()
+        }
     }
 }
 
+#[cfg(feature="poise")]
+pub use poise_specific::*;
 
 #[derive(Debug)]
 pub struct GnomeData {

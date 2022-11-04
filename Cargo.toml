@@ -19,8 +19,8 @@ version = "0.4"
 optional = true
 
 [dependencies.poise]
-git = "https://github.com/GnomedDev/poise"
-branch = "personal"
+git = "https://github.com/kangalioo/poise"
+branch = "serenity-next"
 optional = true
 
 [dependencies.sqlx]
@@ -94,7 +94,7 @@ bot_list = ["serenity", "serde_json", "reqwest", "serde"]
 error_handling = ["poise", "sqlx", "sha2", "sysinfo", "parking_lot"]
 
 [patch.crates-io]
-serenity = {git = "https://github.com/GnomedDev/serenity", branch = "personal"}
+serenity = {git = "https://github.com/serenity-rs/serenity", branch = "next"}
 
-[patch."https://github.com/serenity-rs/serenity"]
-serenity = {git = "https://github.com/GnomedDev/serenity", branch = "personal"}
+[patch."https://github.com/kangalioo/poise"]
+poise = {git = "https://github.com/GnomedDev/poise", branch = "serenity-next"}

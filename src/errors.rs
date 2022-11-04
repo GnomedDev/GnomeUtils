@@ -23,7 +23,7 @@ use tracing::error;
 #[cfg(feature = "songbird")]
 use crate::{Framework, framework_to_context};
 use crate::{GnomeData, require, FrameworkContext, PoiseContextExt, Context, OptionTryUnwrap, serenity};
-use self::serenity::{CreateComponents, CreateActionRow, CreateButton, CreateInteractionResponse};
+use self::serenity::{CreateActionRow, CreateButton, CreateInteractionResponse};
 
 const VIEW_TRACEBACK_CUSTOM_ID: &str = "error::traceback::view";
 
@@ -67,7 +67,7 @@ pub async fn handle_unexpected<'a>(
     let data = poise_context.user_data.as_ref();
     let error_webhook = &data.error_webhook;
 
-    let traceback = format!("{:?}", error);
+    let traceback = format!("{error:?}");
 
     let traceback_hash = hash(traceback.as_bytes());
     let mut conn = data.pool.acquire().await?;
@@ -128,7 +128,7 @@ pub async fn handle_unexpected<'a>(
         ];
 
         let mut embed = serenity::CreateEmbed::default()
-            .footer(serenity::CreateEmbedFooter::default().text("This error has occurred 1 time!"))
+            .footer(serenity::CreateEmbedFooter::new("This error has occurred 1 time!"))
             .title(short_error)
             .colour(crate::RED);
 
@@ -141,7 +141,7 @@ pub async fn handle_unexpected<'a>(
         }
 
         if let Some(author_name) = author_name {
-            let mut author_builder = serenity::CreateEmbedAuthor::default().name(author_name);
+            let mut author_builder = serenity::CreateEmbedAuthor::new(author_name);
             if let Some(icon_url) = icon_url {
                 author_builder = author_builder.icon_url(icon_url);
             }
@@ -151,11 +151,11 @@ pub async fn handle_unexpected<'a>(
 
         let message = error_webhook.execute(&ctx.http, true, serenity::ExecuteWebhook::default()
             .embeds(vec![embed])
-            .components(CreateComponents::default().add_action_row(CreateActionRow::default().add_button(CreateButton::default()
-                .label("View Traceback")
-                .custom_id(VIEW_TRACEBACK_CUSTOM_ID)
-                .style(serenity::ButtonStyle::Danger)
-            )))
+            .components(vec![CreateActionRow::Buttons(vec![
+                CreateButton::new(VIEW_TRACEBACK_CUSTOM_ID)
+                    .label("View Traceback")
+                    .style(serenity::ButtonStyle::Danger)
+            ])])
         ).await?.unwrap();
 
         let ErrorRow{message_id} = sqlx::query_as("
@@ -238,17 +238,18 @@ pub async fn handle_guild(name: &str, ctx: &serenity::Context, poise_context: Fr
 // Command Error handlers
 async fn handle_cooldown<D: AsRef<GnomeData> + Send + Sync>(ctx: Context<'_, D>, remaining_cooldown: std::time::Duration) -> Result<(), Error> {
     let cooldown_response = ctx.send_error(
-        &ctx.gettext("{command_name} is on cooldown").replace("{command_name}", ctx.command().name),
+        &ctx.gettext("{command_name} is on cooldown").replace("{command_name}", &ctx.command().name),
         Some(&ctx.gettext("try again in {} seconds").replace("{}", &format!("{:.1}", remaining_cooldown.as_secs_f32())))
     ).await?;
 
     if let poise::Context::Prefix(ctx) = ctx {
-        if let Some(poise::ReplyHandle::Known(error_message)) = cooldown_response {
+        if let Some(error_reply) = cooldown_response {
+            let error_message = error_reply.into_message().await?;
             tokio::time::sleep(remaining_cooldown).await;
 
             let ctx_discord = ctx.discord;
             error_message.delete(ctx_discord).await?;
-            
+
             let bot_user_id = ctx_discord.cache.current_user().id;
             let channel = error_message.channel(ctx_discord).await?.guild().unwrap();
 
@@ -301,20 +302,19 @@ const fn channel_type(channel: &serenity::Channel) -> &'static str {
             _ => "Unknown Channel Type",
         },
         Channel::Private(_) => "Private Channel",
-        Channel::Category(_) => "Category Channel??",
         _ => "Unknown Channel Type",
     }
 }
 
-pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkError<'_, D, Error>) -> Result<(), Error> {
+pub async fn handle<D: AsRef<GnomeData> + std::fmt::Debug + Send + Sync>(error: poise::FrameworkError<'_, D, Error>) -> Result<(), Error> {
     match error {
-        poise::FrameworkError::DynamicPrefix { error } => error!("Error in dynamic_prefix: {:?}", error),
+        poise::FrameworkError::DynamicPrefix { error, ctx: _, msg: _ } => error!("Error in dynamic_prefix: {:?}", error),
         poise::FrameworkError::Command { error, ctx } => {
             let author = ctx.author();
             let command = ctx.command();
 
             let mut extra_fields = vec![
-                ("Command", Cow::Borrowed(command.name), true),
+                ("Command", Cow::Owned(command.name.clone()), true),
                 ("Slash Command", Cow::Owned(matches!(ctx, poise::Context::Application(..)).to_string()), true),
                 ("Channel Type", Cow::Borrowed(channel_type(&ctx.channel_id().to_channel(ctx.discord()).await?)), true),
             ];
@@ -339,7 +339,7 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
         poise::FrameworkError::CooldownHit { remaining_cooldown, ctx } => handle_cooldown(ctx, remaining_cooldown).await?,
         poise::FrameworkError::MissingBotPermissions{missing_permissions, ctx} => {
             ctx.send_error(
-                &ctx.gettext("I cannot run `{command}` as I am missing permissions").replace("{command}", ctx.command().name),
+                &ctx.gettext("I cannot run `{command}` as I am missing permissions").replace("{command}", &ctx.command().name),
                 Some(&ctx.gettext("give me: {}").replace("{}", &missing_permissions.get_permission_names().join(", ")))
             ).await?;
         },
@@ -353,7 +353,7 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
             ).await?;
         },
 
-        poise::FrameworkError::Setup { error } => panic!("{:#?}", error),
+        poise::FrameworkError::Setup { .. } => panic!("{error:#?}"),
         poise::FrameworkError::CommandCheckFailed { error, ctx } => {
             if let Some(error) = error {
                 error!("Premium Check Error: {:?}", error);
@@ -363,9 +363,11 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
 
         poise::FrameworkError::Listener{..} => unreachable!("Listener error, but no listener???"),
         poise::FrameworkError::CommandStructureMismatch {description: _, ctx: _} |
-        poise::FrameworkError::DmOnly {ctx: _ } |
-        poise::FrameworkError::NsfwOnly {ctx: _} | 
-        poise::FrameworkError::NotAnOwner{ctx: _} => {},
+        poise::FrameworkError::DmOnly { .. } |
+        poise::FrameworkError::NsfwOnly { .. } |
+        poise::FrameworkError::NotAnOwner { .. } |
+        poise::FrameworkError::UnknownInteraction { .. } |
+        poise::FrameworkError::UnknownCommand { .. } => {},
         poise::FrameworkError::GuildOnly {ctx} => {
             let error = ctx
                 .gettext("{command_name} cannot be used in private messages")
@@ -385,7 +387,7 @@ pub async fn handle<D: AsRef<GnomeData> + Send + Sync>(error: poise::FrameworkEr
 
 
 pub async fn interaction_create(ctx: serenity::Context, interaction: serenity::Interaction, framework: FrameworkContext<'_, impl AsRef<GnomeData>>) {
-    if let serenity::Interaction::MessageComponent(interaction) = interaction {
+    if let serenity::Interaction::Component(interaction) = interaction {
         if interaction.data.custom_id == VIEW_TRACEBACK_CUSTOM_ID {
             handle_unexpected_default(&ctx, framework, "InteractionCreate",
                 handle_traceback_button(&ctx, framework.user_data.as_ref(), interaction).await
@@ -394,27 +396,20 @@ pub async fn interaction_create(ctx: serenity::Context, interaction: serenity::I
     }
 }
 
-pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, interaction: serenity::MessageComponentInteraction) -> Result<(), Error> {
+pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, interaction: serenity::ComponentInteraction) -> Result<(), Error> {
     let row: Option<TracebackRow> = sqlx::query_as("SELECT traceback FROM errors WHERE message_id = $1")
         .bind(interaction.message.id.get() as i64)
         .fetch_optional(&data.pool)
         .await?;
 
-    let mut response_data = serenity::CreateInteractionResponseData::default().ephemeral(true);
+    let mut response_data = serenity::CreateInteractionResponseMessage::default().ephemeral(true);
     response_data = if let Some(TracebackRow{traceback}) = row {
-        response_data.files([serenity::AttachmentType::Bytes {
-            data: Cow::Owned(traceback.into_bytes()),
-            filename: Cow::Borrowed("traceback.txt")
-        }])
+        response_data.files([serenity::CreateAttachment::bytes(traceback.into_bytes(), "traceback.txt")])
     } else {
         response_data.content("No traceback found.")
     };
 
-    interaction.create_interaction_response(&ctx.http, CreateInteractionResponse::default()
-        .kind(serenity::InteractionResponseType::ChannelMessageWithSource)
-        .interaction_response_data(response_data)
-    ).await?;
-
+    interaction.create_response(&ctx.http, CreateInteractionResponse::Message(response_data)).await?;
     Ok(())
 }
 

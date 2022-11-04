@@ -64,7 +64,7 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
     #[cfg(feature = "i18n")]
     fn current_catalog(&self) -> Option<&gettext::Catalog> {
         if let poise::Context::Application(ctx) = self {
-            if let poise::ApplicationCommandOrAutocompleteInteraction::ApplicationCommand(interaction) = ctx.interaction {
+            if let poise::CommandOrAutocompleteInteraction::Command(interaction) = ctx.interaction {
                 return ctx.data.as_ref().translations.get(match interaction.locale.as_str() {
                     "ko" => "ko-KR",
                     "pt-BR" => "pt",
@@ -133,15 +133,12 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
             .embed(serenity::CreateEmbed::default()
                 .colour(crate::RED)
                 .title("An Error Occurred!")
+                .author(serenity::CreateEmbedAuthor::new(name.into_owned()).icon_url(avatar_url))
                 .description(format!(
-                    "Sorry but {}, to fix this, please {}!", error,
+                    "Sorry but {}, to fix this, please {error}!",
                     fix.unwrap_or("get in contact with us via the support server"),
                 ))
-                .author(serenity::CreateEmbedAuthor::default()
-                    .name(name.into_owned())
-                    .icon_url(avatar_url)
-                )
-                .footer(serenity::CreateEmbedFooter::default().text(format!(
+                .footer(serenity::CreateEmbedFooter::new(format!(
                     "Support Server: {}", self.data().as_ref().main_server_invite
                 )))
             )
