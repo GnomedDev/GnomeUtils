@@ -42,9 +42,9 @@ fn show_group_description(group: &IndexMap<&str, Vec<&Command<impl AsRef<GnomeDa
         format!("**__{category}__**\n{}\n", commands.iter().map(|c| {
             let params = format_params(c);
             if params.is_empty() {
-                format!("`{}`: {}\n", c.qualified_name, c.inline_help.unwrap())
+                format!("`{}`: {}\n", c.qualified_name, c.description.unwrap())
             } else {
-                format!("`{} {}`: {}\n", c.qualified_name, params, c.inline_help.unwrap())
+                format!("`{} {}`: {}\n", c.qualified_name, params, c.description.unwrap())
             }
         }).collect::<String>()
     )}).collect::<String>()
