@@ -43,7 +43,7 @@ fn show_group_description(group: &IndexMap<&str, Vec<&Command<impl AsRef<GnomeDa
     for (category, commands) in group.iter() {
         writeln!(buf, "**__{category}__**").unwrap();
         for c in commands.iter() {
-            write!(buf, "`{}", c.qualified_name).unwrap();
+            write!(buf, "`/{}", c.qualified_name).unwrap();
             format_params(&mut buf, c);
             writeln!(buf, "`: {}", c.description.as_ref().unwrap()).unwrap();
         }
