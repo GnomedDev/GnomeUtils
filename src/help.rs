@@ -27,27 +27,29 @@ fn get_command_mapping<D: AsRef<GnomeData>>(commands: &[Command<D>]) -> IndexMap
     mapping
 }
 
-fn format_params(command: &Command<impl AsRef<GnomeData>>) -> String {
-    command.parameters.iter().map(|p| {
+fn format_params(buf: &mut String, command: &Command<impl AsRef<GnomeData>>) {
+    for p in &command.parameters {
+        let name = &p.name;
         if p.required {
-            format!("<{}> ", p.name)
+            write!(buf, " <{name}>")
         } else {
-            format!("[{}] ", p.name)
-        }
-    }).collect()
+            write!(buf, " [{name}]")
+        }.unwrap();
+    };
 }
 
 fn show_group_description(group: &IndexMap<&str, Vec<&Command<impl AsRef<GnomeData>>>>) -> String {
-    group.iter().map(|(category, commands)| {
-        format!("**__{category}__**\n{}\n", commands.iter().map(|c| {
-            let params = format_params(c);
-            if params.is_empty() {
-                format!("`{}`: {}\n", c.qualified_name, c.description.as_ref().unwrap())
-            } else {
-                format!("`{} {params}`: {}\n", c.qualified_name, c.description.as_ref().unwrap())
-            }
-        }).collect::<String>()
-    )}).collect::<String>()
+    let mut buf = String::with_capacity(group.len()); // Major underestimation, but it's better than nothing
+    for (category, commands) in group.iter() {
+        writeln!(buf, "**__{category}__**").unwrap();
+        for c in commands.iter() {
+            write!(buf, "`{}", c.qualified_name).unwrap();
+            format_params(&mut buf, c);
+            writeln!(buf, "`: {}", c.description.as_ref().unwrap()).unwrap();
+        }
+    };
+
+    buf
 }
 
 
@@ -98,10 +100,13 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
         .description(match &mode {
             HelpCommandMode::Root => show_group_description(&get_command_mapping(commands)),
             HelpCommandMode::Command(command_obj) => {
-                let mut msg = format!("{}\n```/{} {}```\n",
+                let mut msg = format!("{}\n```/{}",
                     command_obj.description.as_deref().unwrap_or_else(|| ctx.gettext("Command description not found!")),
-                    command_obj.qualified_name, format_params(command_obj),
+                    command_obj.qualified_name
                 );
+
+                format_params(&mut msg, command_obj);
+                msg.push_str("```\n");
 
                 if !command_obj.parameters.is_empty() {
                     msg.push_str(ctx.gettext("__**Parameter Descriptions**__\n"));
