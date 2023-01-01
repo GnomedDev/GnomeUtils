@@ -19,7 +19,7 @@ version = "0.4"
 optional = true
 
 [dependencies.poise]
-git = "https://github.com/kangalioo/poise"
+git = "https://github.com/serenity-rs/poise"
 branch = "serenity-next"
 optional = true
 
@@ -65,7 +65,7 @@ version = "0.12"
 optional = true
 
 [dependencies.sysinfo]
-version = "0.26"
+version = "0.27"
 optional = true
 
 [dependencies.tokio]
@@ -94,10 +94,7 @@ bot_list = ["serenity", "serde_json", "reqwest", "serde"]
 error_handling = ["poise", "sqlx", "sha2", "sysinfo", "parking_lot"]
 
 [patch.crates-io]
-serenity = {git = "https://github.com/GnomedDev/serenity", branch = "pinned-serenity"}
+serenity = {git = "https://github.com/serenity-rs/serenity", branch = "next"}
 
-[patch."https://github.com/serenity-rs/serenity"]
-serenity = {git = "https://github.com/GnomedDev/serenity", branch = "pinned-serenity"}
-
-[patch."https://github.com/kangalioo/poise"]
-poise = {git = "https://github.com/GnomedDev/poise", rev = "ad3a5d806b0ef20d4940811e021d86ce3c16e610"}
+[patch."https://github.com/serenity-rs/poise"]
+poise = {git = "https://github.com/GnomedDev/poise", branch = "serenity-next"}

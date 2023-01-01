@@ -20,10 +20,8 @@ use sha2::Digest;
 use sysinfo::SystemExt;
 use tracing::error;
 
-#[cfg(feature = "songbird")]
-use crate::{Framework, framework_to_context};
 use crate::{GnomeData, require, FrameworkContext, PoiseContextExt, Context, OptionTryUnwrap, serenity};
-use self::serenity::{CreateActionRow, CreateButton, CreateInteractionResponse};
+use self::serenity::{CreateActionRow, CreateButton, CreateInteractionResponse, FullEvent as Event};
 
 const VIEW_TRACEBACK_CUSTOM_ID: &str = "error::traceback::view";
 
@@ -175,11 +173,11 @@ pub async fn handle_unexpected<'a>(
     Ok(())
 }
 
-pub async fn handle_unexpected_default(ctx: &serenity::Context, poise_context: FrameworkContext<'_, impl AsRef<GnomeData>>, name: &str, result: Result<()>) -> Result<()> {
+pub async fn handle_unexpected_default(ctx: &serenity::Context, framework: FrameworkContext<'_, impl AsRef<GnomeData>>, name: &str, result: Result<()>) -> Result<()> {
     let error = require!(result.err(), Ok(()));
 
     handle_unexpected(
-        ctx, poise_context,
+        ctx, framework,
         name, error, [],
         None, None
     ).await
@@ -207,7 +205,7 @@ pub async fn handle_message(ctx: &serenity::Context, poise_context: FrameworkCon
     ).await
 }
 
-pub async fn handle_member(ctx: &serenity::Context, poise_context: FrameworkContext<'_, impl AsRef<GnomeData>>, member: &serenity::Member, result: Result<(), impl Into<Error>>) -> Result<()> {
+pub async fn handle_member(ctx: &serenity::Context, framework: FrameworkContext<'_, impl AsRef<GnomeData>>, member: &serenity::Member, result: Result<(), impl Into<Error>>) -> Result<()> {
     let error = require!(result.err(), Ok(())).into();
 
     let extra_fields = [
@@ -217,17 +215,17 @@ pub async fn handle_member(ctx: &serenity::Context, poise_context: FrameworkCont
     ];
 
     handle_unexpected(
-        ctx, poise_context,
+        ctx, framework,
         "GuildMemberAdd", error, extra_fields,
         None, None
     ).await
 }
 
-pub async fn handle_guild(name: &str, ctx: &serenity::Context, poise_context: FrameworkContext<'_, impl AsRef<GnomeData>>, guild: Option<&serenity::Guild>, result: Result<()>) -> Result<()> {
+pub async fn handle_guild(name: &str, ctx: &serenity::Context, framework: FrameworkContext<'_, impl AsRef<GnomeData>>, guild: Option<&serenity::Guild>, result: Result<()>) -> Result<()> {
     let error = require!(result.err(), Ok(()));
 
     handle_unexpected(
-        ctx, poise_context,
+        ctx, framework,
         name, error, [],
         guild.as_ref().map(|g| g.name.clone()),
         guild.and_then(serenity::Guild::icon_url),
@@ -361,7 +359,39 @@ pub async fn handle<D: AsRef<GnomeData> + std::fmt::Debug + Send + Sync>(error: 
             }
         },
 
-        poise::FrameworkError::Listener{..} => unreachable!("Listener error, but no listener???"),
+        poise::FrameworkError::Listener{ error, event, framework } => {
+            #[allow(non_snake_case)]
+            fn Err<E>(error: E) -> Result<(), E> {
+                Result::Err(error)
+            }
+
+            match event {
+                Event::Message { ctx, new_message } => {
+                    handle_message(ctx, framework, new_message, Err(error)).await?;
+                },
+                Event::GuildMemberAddition { ctx, new_member } => {
+                    handle_member(ctx, framework, new_member, Err(error)).await?;
+                },
+                Event::GuildCreate { ctx, guild, .. } => {
+                    handle_guild("GuildCreate", ctx, framework, Some(guild), Err(error)).await?;
+                },
+                Event::GuildDelete { ctx, full, .. } => {
+                    handle_guild("GuildDelete", ctx, framework, full.as_ref(), Err(error)).await?;
+                },
+                Event::VoiceStateUpdate { ctx, .. } => {
+                    handle_unexpected_default(ctx, framework, "VoiceStateUpdate", Err(error)).await?;
+                },
+                Event::InteractionCreate { ctx, .. } => {
+                    handle_unexpected_default(ctx, framework, "InteractionCreate", Err(error)).await?;
+                },
+                Event::Ready { ctx, .. } => {
+                    handle_unexpected_default(ctx, framework, "Ready", Err(error)).await?;
+                },
+                _ => {
+                    tracing::warn!("Unhandled {} error: {:?}", event.snake_case_name(), error);
+                }
+            }
+        },
         poise::FrameworkError::CommandStructureMismatch {description: _, ctx: _} |
         poise::FrameworkError::DmOnly { .. } |
         poise::FrameworkError::NsfwOnly { .. } |
@@ -386,17 +416,17 @@ pub async fn handle<D: AsRef<GnomeData> + std::fmt::Debug + Send + Sync>(error: 
 }
 
 
-pub async fn interaction_create(ctx: serenity::Context, interaction: serenity::Interaction, framework: FrameworkContext<'_, impl AsRef<GnomeData>>) {
+pub async fn interaction_create(ctx: &serenity::Context, interaction: &serenity::Interaction, framework: FrameworkContext<'_, impl AsRef<GnomeData>>) -> Result<(), Error> {
     if let serenity::Interaction::Component(interaction) = interaction {
         if interaction.data.custom_id == VIEW_TRACEBACK_CUSTOM_ID {
-            handle_unexpected_default(&ctx, framework, "InteractionCreate",
-                handle_traceback_button(&ctx, framework.user_data.as_ref(), interaction).await
-            ).await.unwrap_or_else(|err| error!("on_error: {:?}", err));
+            handle_traceback_button(ctx, framework.user_data.as_ref(), interaction).await?;
         };
-    }
+    };
+
+    Ok(())
 }
 
-pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, interaction: serenity::ComponentInteraction) -> Result<(), Error> {
+pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, interaction: &serenity::ComponentInteraction) -> Result<(), Error> {
     let row: Option<TracebackRow> = sqlx::query_as("SELECT traceback FROM errors WHERE message_id = $1")
         .bind(interaction.message.id.get() as i64)
         .fetch_optional(&data.pool)
@@ -417,7 +447,8 @@ pub async fn handle_traceback_button(ctx: &serenity::Context, data: &GnomeData, 
 #[cfg(feature = "songbird")]
 struct TrackErrorHandler<D, Iter: IntoIterator<Item = (&'static str, Cow<'static, str>, bool)>> {
     ctx: serenity::Context,
-    framework: Arc<Framework<D>>,
+    data: D,
+    shard_manager: Arc<tokio::sync::Mutex<serenity::ShardManager>>,
     extra_fields: Iter,
     author_name: String,
     icon_url: String,
@@ -433,7 +464,14 @@ where
     async fn act(&self, ctx: &songbird::EventContext<'_>) -> Option<songbird::Event> {
         if let songbird::EventContext::Track([(state, _)]) = ctx {
             if let songbird::tracks::PlayMode::Errored(error) = state.playing.clone() {
-                let framework_context = framework_to_context(&self.framework).await;
+                // HACK: Cannot get reference to options from here, so has to be faked.
+                // This is fine because the options are not used in the error handler.
+                let framework_context = FrameworkContext {
+                    user_data: &self.data,
+                    shard_manager: &self.shard_manager,
+                    bot_id: self.ctx.cache.current_user().id,
+                    options: &poise::FrameworkOptions::default()
+                };
 
                 let author_name = Some(self.author_name.clone());
                 let icon_url = Some(self.icon_url.clone());
@@ -459,7 +497,8 @@ where
 /// track are passed to [`handle_unexpected`] if the track errors.
 pub fn handle_track<Iter, D>(
     ctx: serenity::Context,
-    framework: Arc<Framework<D>>,
+    shard_manager: Arc<tokio::sync::Mutex<serenity::ShardManager>>,
+    data: D,
     extra_fields: Iter,
     author_name: String,
     icon_url: String,
@@ -472,6 +511,6 @@ where
 {
     track.add_event(
         songbird::Event::Track(songbird::TrackEvent::Error),
-        TrackErrorHandler {ctx, framework, extra_fields, author_name, icon_url}
+        TrackErrorHandler {ctx, data, shard_manager, extra_fields, author_name, icon_url}
     )
 }
