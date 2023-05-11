@@ -65,7 +65,7 @@ version = "0.12"
 optional = true
 
 [dependencies.sysinfo]
-version = "0.27"
+version = "0.29"
 optional = true
 
 [dependencies.tokio]
@@ -95,6 +95,3 @@ error_handling = ["poise", "sqlx", "sha2", "sysinfo", "parking_lot"]
 
 [patch.crates-io]
 serenity = {git = "https://github.com/serenity-rs/serenity", branch = "next"}
-
-[patch."https://github.com/serenity-rs/poise"]
-poise = {git = "https://github.com/GnomedDev/poise", branch = "serenity-next"}

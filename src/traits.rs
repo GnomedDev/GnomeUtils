@@ -84,7 +84,7 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
                 let member = channel.guild_id.member(ctx_discord, self.author()).await?;
                 let guild = channel.guild(&ctx_discord.cache).try_unwrap()?;
 
-                Ok(guild.user_permissions_in(&channel, &member)?)
+                Ok(guild.user_permissions_in(&channel, &member))
             }
             _ => {
                 Ok(((serenity::Permissions::from_bits_truncate(0b111_1100_1000_0000_0000_0111_1111_1000_0100_0000)
