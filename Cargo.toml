@@ -94,4 +94,7 @@ bot_list = ["serenity", "serde_json", "reqwest", "serde"]
 error_handling = ["poise", "sqlx", "sha2", "sysinfo", "parking_lot"]
 
 [patch.crates-io]
-serenity = {git = "https://github.com/serenity-rs/serenity", branch = "next"}
+serenity = {git = "https://github.com/mkrasnitski/serenity", branch = "gateway-revert"}
+
+[patch."https://github.com/serenity-rs/serenity"]
+serenity = {git = "https://github.com/mkrasnitski/serenity", branch = "gateway-revert"}

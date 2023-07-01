@@ -2,7 +2,7 @@
 //!
 //! Requirements:
 //! - Must have a table with the following schema:
-//! 
+//!
 //! ```sql
 //! CREATE TABLE errors (
 //!     traceback   text    PRIMARY KEY,
@@ -77,7 +77,7 @@ pub async fn handle_unexpected<'a>(
     ").bind(traceback_hash.clone()).fetch_optional(&mut conn).await? {
         let message_id = serenity::MessageId::new(message_id as u64);
 
-        let mut message = error_webhook.get_message(&ctx.http, message_id).await?;
+        let mut message = error_webhook.get_message(&ctx.http, None, message_id).await?;
         let mut embed = message.embeds.remove(0);
 
         embed.footer.as_mut().try_unwrap()?.text = format!("This error has occurred {occurrences} times!");
@@ -166,7 +166,7 @@ pub async fn handle_unexpected<'a>(
         ",).bind(traceback_hash).bind(traceback).bind(message.id.get() as i64).fetch_one(&mut conn).await?;
 
         if message.id.get() != (message_id as u64) {
-            error_webhook.delete_message(&ctx.http, message.id).await?;
+            error_webhook.delete_message(&ctx.http, None, message.id).await?;
         }
     };
 
@@ -292,7 +292,7 @@ const fn channel_type(channel: &serenity::Channel) -> &'static str {
 
     match channel {
         Channel::Guild(channel)  => match channel.kind {
-            ChannelType::Text | ChannelType::News => "Text Channel",   
+            ChannelType::Text | ChannelType::News => "Text Channel",
             ChannelType::Voice => "Voice Channel",
             ChannelType::NewsThread => "News Thread Channel",
             ChannelType::PublicThread => "Public Thread Channel",

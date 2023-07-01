@@ -121,10 +121,10 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
                         m = member;
                         (m.display_name(), m.face())
                     },
-                    Err(_) => (std::borrow::Cow::Borrowed(&author.name), author.face()),
+                    Err(_) => (author.name.as_str(), author.face()),
                 }
             }
-            serenity::Channel::Private(_) => (std::borrow::Cow::Borrowed(&author.name), author.face()),
+            serenity::Channel::Private(_) => (author.name.as_str(), author.face()),
             _ => unreachable!(),
         };
 
@@ -133,7 +133,7 @@ impl<D: AsRef<GnomeData> + Send + Sync, E: Send + Sync> PoiseContextExt for pois
             .embed(serenity::CreateEmbed::default()
                 .colour(crate::RED)
                 .title("An Error Occurred!")
-                .author(serenity::CreateEmbedAuthor::new(name.into_owned()).icon_url(avatar_url))
+                .author(serenity::CreateEmbedAuthor::new(name).icon_url(avatar_url))
                 .description(format!(
                     "Sorry but {}, to fix this, please {error}!",
                     fix.unwrap_or("get in contact with us via the support server"),
