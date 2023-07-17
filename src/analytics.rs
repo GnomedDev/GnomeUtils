@@ -1,8 +1,8 @@
 //! Exposes an analytics handler for postgres
-//! 
+//!
 //! Requirements:
 //! - Must have a table with the following schema:
-//! 
+//!
 //! ```sql
 //! CREATE TABLE analytics (
 //!      event          text  NOT NULL,
@@ -45,7 +45,7 @@ impl Handler {
     #[must_use]
     pub fn new(pool: sqlx::PgPool) -> Self {
         Self {
-            pool, 
+            pool,
             log_buffer: DashMap::new()
         }
     }
@@ -81,7 +81,7 @@ impl crate::Looper for Handler {
                     .bind(event)
                     .bind(kind == EventType::Command)
                     .bind(count)
-                    .execute(&mut *transaction).await?;
+                    .execute(&mut **transaction).await?;
             }
 
             Ok(())

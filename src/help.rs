@@ -40,9 +40,9 @@ fn format_params(buf: &mut String, command: &Command<impl AsRef<GnomeData>>) {
 
 fn show_group_description(group: &IndexMap<&str, Vec<&Command<impl AsRef<GnomeData>>>>) -> String {
     let mut buf = String::with_capacity(group.len()); // Major underestimation, but it's better than nothing
-    for (category, commands) in group.iter() {
+    for (category, commands) in group {
         writeln!(buf, "**__{category}__**").unwrap();
-        for c in commands.iter() {
+        for c in commands {
             write!(buf, "`/{}", c.qualified_name).unwrap();
             format_params(&mut buf, c);
             writeln!(buf, "`: {}", c.description.as_ref().unwrap()).unwrap();
@@ -95,7 +95,7 @@ pub async fn command(ctx: Context<'_, impl AsRef<GnomeData> + Send + Sync>, comm
     ctx.send(poise::CreateReply::default().embed(serenity::CreateEmbed::default()
         .title(ctx.gettext("{command_name} Help!").replace("{command_name}", &match &mode {
             HelpCommandMode::Root => ctx.discord().cache.current_user().name.clone(),
-            HelpCommandMode::Group(c) | HelpCommandMode::Command(c) => format!("`{}`", c.qualified_name) 
+            HelpCommandMode::Group(c) | HelpCommandMode::Command(c) => format!("`{}`", c.qualified_name)
         }))
         .description(match &mode {
             HelpCommandMode::Root => show_group_description(&get_command_mapping(commands)),

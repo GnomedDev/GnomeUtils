@@ -74,7 +74,7 @@ pub async fn handle_unexpected<'a>(
         UPDATE errors SET occurrences = occurrences + 1
         WHERE traceback_hash = $1
         RETURNING message_id, occurrences
-    ").bind(traceback_hash.clone()).fetch_optional(&mut conn).await? {
+    ").bind(traceback_hash.clone()).fetch_optional(&mut *conn).await? {
         let message_id = serenity::MessageId::new(message_id as u64);
 
         let mut message = error_webhook.get_message(&ctx.http, None, message_id).await?;
@@ -163,7 +163,7 @@ pub async fn handle_unexpected<'a>(
             ON CONFLICT (traceback_hash)
             DO UPDATE SET occurrences = errors.occurrences + 1
             RETURNING errors.message_id
-        ",).bind(traceback_hash).bind(traceback).bind(message.id.get() as i64).fetch_one(&mut conn).await?;
+        ",).bind(traceback_hash).bind(traceback).bind(message.id.get() as i64).fetch_one(&mut *conn).await?;
 
         if message.id.get() != (message_id as u64) {
             error_webhook.delete_message(&ctx.http, None, message.id).await?;
